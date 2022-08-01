@@ -6,10 +6,13 @@ static const BaseType_t app_cpu = 1;
 #endif
 
 #define DELAY_500MS pdMS_TO_TICKS(500)
-
+#define DELAY_10MS  pdMS_TO_TICKS(10)
 // Global Variable
 
-
+typedef struct Message {
+  char body[100];
+  int count;
+} gUartMessage;
 
 
 
@@ -35,15 +38,13 @@ TaskHandle_t MQTT_Task_Handler;
 
 
 // Global Functions   portMAX_DELAY
-void writeQueue(char msg[])
+void writeQueue(char serialMsg[])
 {
-  char msgSerial[1024];
-  // Write the data in the Queue
-  sprintf(msgSerial, msg);
-  if( (xQueueSendToBack( serialWriteQueue, &msgSerial , portMAX_DELAY)) == pdPASS )
-  {
+    gUartMessage msg;
+    strcpy(msg.body, serialMsg);
+    msg.count = 1;
+    xQueueSend( serialWriteQueue , (void *)&msg, portMAX_DELAY);
     
-  }
   
   
 }
@@ -58,7 +59,7 @@ void setup() {
   Serial.begin(115200);
 
   // Creation of Serial Uart Queue for writing data to Serial Monitor
-  serialWriteQueue = xQueueCreate(100 , sizeof(char*));
+  serialWriteQueue = xQueueCreate(100 , sizeof(gUartMessage));
   
   
   
@@ -66,47 +67,108 @@ void setup() {
   xTaskCreatePinnedToCore (
     InitializationTask,
     "Initialization Task",
-    512 ,
+    1024 ,
     NULL,
     3,
     &Initialization_Task_Handler,
     app_cpu );
 
    // Creating Input Task
-//   xTaskCreatePinnedToCore (InputTask,    "Input Task",    512 ,    NULL,    3,    &Input_Task_Handler,    app_cpu );
+   xTaskCreatePinnedToCore (InputTask,    "Input Task",    1024 ,    NULL,    3,    &Input_Task_Handler,    app_cpu );
   // Creating Output Task
-//   xTaskCreatePinnedToCore (OutputTask,    "Output Task",    512 ,    NULL,   3,    &Output_Task_Handler,    app_cpu );
+   xTaskCreatePinnedToCore (OutputTask,    "Output Task",    1024 ,    NULL,   3,    &Output_Task_Handler,    app_cpu );
    // Creating Serial Uart Task 
-   xTaskCreatePinnedToCore (SerialUartTask,    "Serial UART Task",    512 ,    NULL,   3,    &Serial_Task_Handler,    app_cpu );
+   xTaskCreatePinnedToCore (SerialUartTask,    "Serial UART Task",    1024 ,    NULL,   3,    &Serial_Task_Handler,    app_cpu );
    // Creating MQTT Task
-//   xTaskCreatePinnedToCore (MQTT_Task,    "MQTT Task",   4096  ,    NULL,   3,    &MQTT_Task_Handler,    app_cpu );
+   xTaskCreatePinnedToCore (MQTT_Task,    "MQTT Task",   4096  ,    NULL,   3,    &MQTT_Task_Handler,    app_cpu );
    // Creating Display Task
-//   xTaskCreatePinnedToCore (OLED_DisplayTask,    "Display Oled Task",   4096  ,    NULL,   3,    &Display_Task_Handler,    app_cpu );
+   xTaskCreatePinnedToCore (OLED_DisplayTask,    "Display Oled Task",   1024  ,    NULL,   3,    &Display_Task_Handler,    app_cpu );
  
   
 }
 
+/*
+ *  This is an Initialization Task
+ */
 void InitializationTask(void *pvParam)
+{
+
+   while(1)
+  {
+    writeQueue ("Initialization Task \r\n");
+    vTaskDelay(DELAY_10MS);
+  }
+}
+
+/*
+ * This is an Input Task. This task is responsible
+ * for all the input handling of the system
+ */
+void InputTask (void *pvParam)
 {
   while(1)
   {
-    char temp[] = "Initialization Task \r\n";
-    if( (xQueueSendToBack( serialWriteQueue, temp , portMAX_DELAY)) == pdPASS )
-    {
-      
-    }
-    vTaskDelay(DELAY_500MS);
+        writeQueue ("input Task \r\n");
+        vTaskDelay(DELAY_10MS);
   }
 }
+
+/*
+ * This is an output Task. This task is responsible 
+ * for handling all the outputs of the system
+ */
+void OutputTask (void *pvParam)
+{
+  while(1)
+  {
+        writeQueue ("Output Task \r\n");
+
+        vTaskDelay(DELAY_10MS);
+  }
+}
+
+/*
+ * 
+ */
+void MQTT_Task (void *pvParam)
+{
+  while(1)
+  {
+        writeQueue ("MQTT Task \r\n");
+    vTaskDelay(DELAY_10MS);
+    
+  }
+}
+
+/*
+ * 
+ */
+void OLED_DisplayTask(void *pvParam)
+{
+  while(1)
+  {
+        writeQueue ("OLED Display Task \r\n");
+    vTaskDelay(DELAY_10MS);
+    
+  }
+}
+ 
+/*
+ * This is a Serial Uart Task
+ */
 
 void SerialUartTask(void *pvParam)
 {
 
-  char *receiveMsg;
+  gUartMessage receiveMsg;
   while(1)
   {
-      xQueueReceive(serialWriteQueue, (void*)&receiveMsg , portMAX_DELAY);
-      Serial.println(receiveMsg);
+      if ( xQueueReceive(serialWriteQueue, (void*)&receiveMsg , portMAX_DELAY) == pdTRUE) 
+      {
+        Serial.print(receiveMsg.body);
+        Serial.println(receiveMsg.count);
+        Serial.flush();
+      }
 
   }
  
