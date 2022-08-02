@@ -20,7 +20,7 @@ class _Time {
   public:
     char timeStr[30];
     unsigned long lastUpdate, upSeconds;
-    int hours, minutes, seconds, days;
+    int hours, minutes, seconds, days , rollover;
 
 
 };
